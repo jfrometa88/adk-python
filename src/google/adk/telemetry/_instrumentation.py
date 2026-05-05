@@ -34,6 +34,7 @@ from ..events import event as event_lib
 if TYPE_CHECKING:
   from ..agents.base_agent import BaseAgent
   from ..agents.invocation_context import InvocationContext
+  from ..tools.base_tool import BaseTool
 
 
 def _get_elapsed_ms(span: trace.Span | None, fallback_start: float) -> float:
@@ -97,7 +98,7 @@ async def record_agent_invocation(
       )
       _metrics.record_agent_request_size(agent.name, ctx.user_content)
       _metrics.record_agent_response_size(agent.name, ctx.session.events)
-      _metrics.record_agent_workflow_steps(agent.name, len(ctx.session.events))
+      _metrics.record_agent_workflow_steps(agent.name, ctx.session.events)
     except Exception:  # pylint: disable=broad-exception-caught
       logger.exception(
           "Failed to record agent metrics for agent %s", agent.name

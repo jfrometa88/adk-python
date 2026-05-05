@@ -98,12 +98,11 @@ def record_agent_response_size(agent_name: str, events: list[Event]):
   _agent_response_size.record(size, attributes=attrs)
 
 
-def record_agent_workflow_steps(agent_name: str, steps_count: int):
-  """Records the number of steps in the agent workflow."""
-  attrs = {
-      gen_ai_attributes.GEN_AI_AGENT_NAME: agent_name,
-  }
-  _agent_workflow_steps.record(steps_count, attributes=attrs)
+def record_agent_workflow_steps(agent_name: str, events: list[Event]):
+  """Records the number of steps in the agent workflow by counting the number of events."""
+  attrs = {gen_ai_attributes.GEN_AI_AGENT_NAME: agent_name}
+  count = sum(1 for event in events if event.author == agent_name)
+  _agent_workflow_steps.record(count, attributes=attrs)
 
 
 def record_tool_execution_duration(

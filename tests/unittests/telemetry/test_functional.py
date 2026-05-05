@@ -349,7 +349,8 @@ async def test_metrics(monkeypatch):
   got_steps = _extract_metrics(metrics_list, "gen_ai.agent.workflow.steps")
   assert len(got_steps) == 1
   want_steps = [
-      MetricPoint(attributes={"gen_ai.agent.name": "complex_agent"}, value=6)
+      # (tool call + result) x 2 + text response = 5 steps
+      MetricPoint(attributes={"gen_ai.agent.name": "complex_agent"}, value=5)
   ]
   assert got_steps == want_steps
 

@@ -75,13 +75,14 @@ def _mock_meter_setup(monkeypatch):
 
 def test_record_agent_request_size(mock_meter_setup):
   """Tests record_agent_request_size records correctly."""
+  user_content = "hello"
   _metrics.record_agent_request_size(
-      "test_agent", types.Content(parts=[types.Part(text="hello")])
+      "test_agent", types.Content(parts=[types.Part(text=user_content)])
   )
   request_size_hist = mock_meter_setup["request_size"]
   request_size_hist.record.assert_called_once()
   args, kwargs = request_size_hist.record.call_args
-  assert args[0] == 5  # len('hello')
+  assert args[0] == len(user_content)
   want_attributes = {
       "gen_ai.agent.name": "test_agent",
   }
@@ -121,7 +122,7 @@ def test_record_agent_response_size(mock_meter_setup):
   response_text = "response"
   event = mock.MagicMock(
       author="test_agent",
-      content=types.Content(parts=[types.Part(text="response")]),
+      content=types.Content(parts=[types.Part(text=response_text)]),
   )
   _metrics.record_agent_response_size("test_agent", [event])
   response_size_hist = mock_meter_setup["response_size"]
@@ -134,14 +135,19 @@ def test_record_agent_response_size(mock_meter_setup):
 
 def test_record_agent_workflow_steps(mock_meter_setup):
   """Tests record_agent_workflow_steps records correctly."""
-  _metrics.record_agent_workflow_steps("test_agent", 5)
+  _metrics.record_agent_workflow_steps(
+      "test_agent",
+      [
+          mock.MagicMock(author="test_agent"),
+          mock.MagicMock(author="test_agent"),
+          mock.MagicMock(author="other_agent"),
+      ],
+  )
   steps_hist = mock_meter_setup["steps"]
   steps_hist.record.assert_called_once()
   args, kwargs = steps_hist.record.call_args
-  assert args[0] == 5
-  want_attributes = {
-      "gen_ai.agent.name": "test_agent",
-  }
+  assert args[0] == 2
+  want_attributes = {"gen_ai.agent.name": "test_agent"}
   assert kwargs["attributes"] == want_attributes
 
 
