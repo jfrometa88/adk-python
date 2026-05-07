@@ -1616,6 +1616,10 @@ class Runner:
     if self.plugin_manager:
       await self.plugin_manager.close()
 
+    # Close Session Service
+    if self.session_service:
+      await self.session_service.flush()
+
     logger.info('Runner closed.')
 
   if sys.version_info < (3, 11):
