@@ -807,9 +807,10 @@ async def _content_to_message_param(
           if isinstance(response, str)
           else _safe_json_serialize(response)
       )
+      tool_role = "tool_responses" if "gemma4" in model.lower() else "tool"
       tool_messages.append(
           ChatCompletionToolMessage(
-              role="tool",
+              role=tool_role,
               tool_call_id=part.function_response.id,
               content=response_content,
           )
