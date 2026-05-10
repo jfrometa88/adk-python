@@ -807,9 +807,10 @@ async def _content_to_message_param(
           if isinstance(response, str)
           else _safe_json_serialize(response)
       )
+      tool_role = "tool_responses" if "gemma4" in model.lower() else "tool"
       tool_messages.append(
           ChatCompletionToolMessage(
-              role="tool",
+              role=tool_role,
               tool_call_id=part.function_response.id,
               content=response_content,
           )
@@ -824,6 +825,7 @@ async def _content_to_message_param(
     follow_up = await _content_to_message_param(
         types.Content(role=content.role, parts=non_tool_parts),
         provider=provider,
+        model=model
     )
     follow_up_messages = (
         follow_up if isinstance(follow_up, list) else [follow_up]
@@ -934,65 +936,64 @@ async def _content_to_message_param(
     )
 
 
-def _ensure_tool_results(messages: List[Message]) -> List[Message]:
-  """Insert placeholder tool messages for missing tool results.
+def _ensure_tool_results(messages: List[Message], model: str) -> List[Message]:
+    if not messages:
+        return messages
 
-  LiteLLM-backed providers like OpenAI and Anthropic reject histories where an
-  assistant tool call is not followed by tool responses before the next
-  non-tool message. This helps recover from interrupted tool execution.
-  """
-  if not messages:
-    return messages
+    _ensure_litellm_imported()
 
-  _ensure_litellm_imported()
+    healed_messages: List[Message] = []
+    pending_tool_call_ids: List[str] = []
+    expected_tool_role = "tool_responses" if "gemma4" in model.lower() else "tool"
 
-  healed_messages: List[Message] = []
-  pending_tool_call_ids: List[str] = []
+    for message in messages:
+        role = message.get("role")
 
-  for message in messages:
-    role = message.get("role")
-    if pending_tool_call_ids and role != "tool":
-      logger.warning(
-          "Missing tool results for tool_call_id(s): %s",
-          pending_tool_call_ids,
-      )
-      healed_messages.extend(
-          ChatCompletionToolMessage(
-              role="tool",
-              tool_call_id=tool_call_id,
-              content=_MISSING_TOOL_RESULT_MESSAGE,
-          )
-          for tool_call_id in pending_tool_call_ids
-      )
-      pending_tool_call_ids = []
+        if pending_tool_call_ids and role != expected_tool_role:
+            logger.warning(
+                "Missing tool results for tool_call_id(s): %s",
+                pending_tool_call_ids,
+            )
+            healed_messages.extend(
+                ChatCompletionToolMessage(
+                    role=expected_tool_role,
+                    tool_call_id=tool_call_id,
+                    content=_MISSING_TOOL_RESULT_MESSAGE,
+                )
+                for tool_call_id in pending_tool_call_ids
+            )
+            pending_tool_call_ids = []
 
-    if role == "assistant":
-      tool_calls = message.get("tool_calls") or []
-      pending_tool_call_ids = [
-          tool_call.get("id") for tool_call in tool_calls if tool_call.get("id")
-      ]
-    elif role == "tool":
-      tool_call_id = message.get("tool_call_id")
-      if tool_call_id in pending_tool_call_ids:
-        pending_tool_call_ids.remove(tool_call_id)
+        if role == "assistant":
+            tool_calls = message.get("tool_calls") or []
+            pending_tool_call_ids = [
+                tool_call.get("id")
+                for tool_call in tool_calls
+                if tool_call.get("id")
+            ]
+        elif role == expected_tool_role:
+            tool_call_id = message.get("tool_call_id")
+            if tool_call_id in pending_tool_call_ids:
+                pending_tool_call_ids.remove(tool_call_id)
 
-    healed_messages.append(message)
+        healed_messages.append(message)
 
-  if pending_tool_call_ids:
-    logger.warning(
-        "Missing tool results for tool_call_id(s): %s",
-        pending_tool_call_ids,
-    )
-    healed_messages.extend(
-        ChatCompletionToolMessage(
-            role="tool",
-            tool_call_id=tool_call_id,
-            content=_MISSING_TOOL_RESULT_MESSAGE,
+    # Bloque final también usa expected_tool_role
+    if pending_tool_call_ids:
+        logger.warning(
+            "Missing tool results for tool_call_id(s): %s",
+            pending_tool_call_ids,
         )
-        for tool_call_id in pending_tool_call_ids
-    )
+        healed_messages.extend(
+            ChatCompletionToolMessage(
+                role=expected_tool_role,
+                tool_call_id=tool_call_id,
+                content=_MISSING_TOOL_RESULT_MESSAGE,
+            )
+            for tool_call_id in pending_tool_call_ids
+        )
 
-  return healed_messages
+    return healed_messages
 
 
 async def _get_content(
