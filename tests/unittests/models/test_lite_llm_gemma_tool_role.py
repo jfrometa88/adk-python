@@ -76,9 +76,6 @@ def _extract_role(msg) -> str:
   return msg.role
 
 
-# Tests: single
-
-
 class TestToolRoleSingleResponse:
   """_content_to_message_param with a single function_response part."""
 
@@ -154,9 +151,6 @@ class TestToolRoleSingleResponse:
       assert (
           _extract_role(result) == "tool"
       ), f"Model '{model}' should not be affected by the Gemma4 fix."
-
-
-# Tests: multiple
 
 
 class TestToolRoleMultipleResponses:

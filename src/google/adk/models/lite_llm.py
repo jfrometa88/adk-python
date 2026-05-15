@@ -937,6 +937,16 @@ async def _content_to_message_param(
 
 
 def _ensure_tool_results(messages: List[Message], model: str) -> List[Message]:
+  """Insert placeholder tool messages for missing tool results.
+
+  LiteLLM-backed providers like OpenAI and Anthropic reject histories where an
+  assistant tool call is not followed by tool responses before the next
+  non-tool message. This helps recover from interrupted tool execution.
+
+  For models that expect a different tool response role (e.g. Gemma4 models,
+  which require 'tool_responses' instead of 'tool'), the role is adjusted
+  accordingly.
+  """
   if not messages:
     return messages
 
@@ -976,7 +986,7 @@ def _ensure_tool_results(messages: List[Message], model: str) -> List[Message]:
 
     healed_messages.append(message)
 
-  # Bloque final también usa expected_tool_role
+  # Final block also uses expected_tool_role
   if pending_tool_call_ids:
     logger.warning(
         "Missing tool results for tool_call_id(s): %s",
