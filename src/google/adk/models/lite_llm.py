@@ -807,6 +807,10 @@ async def _content_to_message_param(
           if isinstance(response, str)
           else _safe_json_serialize(response)
       )
+      # gemma4 requires role='tool_responses' for recognizing function_response parts as responses
+      # from the tool call, instead of OpenAI-compatible 'tool' role used by other models.
+      # Earlier Gemma versions before version 4 do not support tool use,
+      # so this check is intentionally scoped to only look for "gemma4" in the model name.
       tool_role = "tool_responses" if "gemma4" in model.lower() else "tool"
       tool_messages.append(
           ChatCompletionToolMessage(
